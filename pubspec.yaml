@@ -1,4 +1,4 @@
-name: virtual_closet
+name: closet_virtual
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -34,7 +34,13 @@ dependencies:
   flutter_dotenv: ^5.1.0
   image_picker: ^1.0.4
   cached_network_image: ^3.3.1
-
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.0.0
+  video_player: ^2.5.1
+  animated_notch_bottom_bar: ^1.0.2
+  http: ^1.1.0
+  path: ^1.8.3
+  
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -57,6 +63,9 @@ dev_dependencies:
 flutter:
   assets:
     - .env
+    - assets/logo.png
+    - assets/logo_home.png
+    - assets/background.mp4   
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

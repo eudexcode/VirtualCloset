@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ClosetScreen extends StatefulWidget {
   const ClosetScreen({super.key});
@@ -12,7 +11,7 @@ class _ClosetScreenState extends State<ClosetScreen>{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Closet')),
+      // appBar: AppBar(title: const Text('Closet')),
       body: Center(
         child: Text('Welcome to your virtual closet!'),
       ),

@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:closet_virtual/theme/app_colors.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_colors.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env"); //Cargar las variables de entorno desde el archivo .env
-  await Supabase.initialize( // Inicializar Supabase con las variables de entorno
+  await dotenv.load(
+    fileName: ".env",
+  ); //Cargar las variables de entorno desde el archivo .env
+  await Supabase.initialize(
+    // Inicializar Supabase con las variables de entorno
     url: dotenv.env['SUPABASE_URL']!, // URL de mi proyecto de Supabase
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!, // Clave anónima de mi proyecto de Supabase
+    anonKey: dotenv
+        .env['SUPABASE_ANON_KEY']!, // Clave anónima de mi proyecto de Supabase
   );
   runApp(const VirtualCloset()); // Ejecutar la aplicación Flutter
 }
@@ -24,7 +30,27 @@ class VirtualCloset extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Virtual Closet',
-      theme: ThemeData.dark(), // Cambiar el tema a oscuro
+      theme: ThemeData(
+        scaffoldBackgroundColor: AppColors.platinum,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.tealMist,
+          primary: AppColors.tealMist,
+          secondary: AppColors.thistle,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.tealMist,
+          foregroundColor: Colors.white,
+        ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: AppColors.darkText),
+          bodyMedium: TextStyle(color: AppColors.darkText),
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          selectedItemColor: AppColors.liberty,
+          unselectedItemColor: Colors.grey,
+          backgroundColor: AppColors.platinum,
+        ),
+      ), // Cambiar el tema a oscuro
       home: const AuthGate(), // Mostrar la pantalla de autenticación
       // home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
@@ -38,10 +64,20 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final session = Supabase.instance.client.auth.currentSession;
-    return session == null ? const LoginScreen() : const HomeScreen();
+    return StreamBuilder<AuthState>(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return session == null ? const LoginScreen() : const HomeScreen();
+      },
+    );
   }
-  // State<AuthGate> createState() => _MyHomePageState();
 }
 
 // class _MyHomePageState extends State<AuthGate> {
