@@ -42,40 +42,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+        return Scaffold(
       extendBody: true,
       backgroundColor: getBackgroundColor(index),
-      appBar: AppBar(
-        backgroundColor: getBackgroundColor(index),
-        elevation: 0,
-        title: SizedBox(
-          height: 120, // Aumentado de 40 a 120 para mejor visibilidad
-          child: Image.asset(
-            'assets/logo_home.png',
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return Text(
-                'Closet Virtual',
-                style: GoogleFonts.montserrat(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.darkText,
+      endDrawer: _buildDrawer(),
+               appBar: AppBar(
+          backgroundColor: getBackgroundColor(index),
+          elevation: 0,
+          title: SizedBox(
+            height: 120, // Aumentado de 40 a 120 para mejor visibilidad
+            child: Image.asset(
+              'assets/logo_home.png',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Text(
+                  'Closet Virtual',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.darkText,
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            Builder(
+              builder: (context) => IconButton(
+                icon: CircleAvatar(
+                  radius: 20, // Hace el CircleAvatar más grande
+                  backgroundColor: AppColors.thistle,
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 24, // Ícono más grande también
+                  ),
                 ),
-              );
-            },
-          ),
+                                 onPressed: () {
+                   Scaffold.of(context).openEndDrawer();
+                 },
+              ),
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: AppColors.darkText),
-            onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (!mounted) return;
-              Navigator.of(context).pushReplacementNamed('/login');
-            },
-          ),
-        ],
-      ),
 
       body: Stack(
         children: [
@@ -138,6 +147,140 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
       ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            // Header del drawer con foto de perfil
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(top: 50, bottom: 20),
+              decoration: const BoxDecoration(
+                color: AppColors.thistle,
+              ),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.white,
+                    child: const Icon(
+                      Icons.person,
+                      size: 40,
+                      color: AppColors.thistle,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Mi Perfil',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Opciones del menú
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildDrawerItem(
+                    icon: Icons.person_outline,
+                    title: 'Ver Perfil',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: Navegar a la pantalla de perfil
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.add_circle_outline,
+                    title: 'Crear',
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        index = 1; // Ir a la pantalla de upload
+                      });
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.history,
+                    title: 'Historial',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: Navegar a la pantalla de historial
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.local_laundry_service_outlined,
+                    title: 'Lavar',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: Navegar a la pantalla de lavar
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.settings_outlined,
+                    title: 'Configuración',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: Navegar a la pantalla de configuración
+                    },
+                  ),
+                ],
+              ),
+            ),
+            
+            // Log Out al final
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: _buildDrawerItem(
+                icon: Icons.logout,
+                title: 'Log Out',
+                onTap: () async {
+                  Navigator.pop(context);
+                  await Supabase.instance.client.auth.signOut();
+                  if (!mounted) return;
+                  Navigator.of(context).pushReplacementNamed('/login');
+                },
+                isLogout: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    bool isLogout = false,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isLogout ? Colors.red : AppColors.darkText,
+        size: 24,
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.montserrat(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isLogout ? Colors.red : AppColors.darkText,
+        ),
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
     );
   }
 }
