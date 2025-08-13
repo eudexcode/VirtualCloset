@@ -1,25 +1,38 @@
-import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
 import 'package:flutter/material.dart';
-import 'closet_screen.dart';
-import 'upload_screen.dart';
-import 'outfit_generator_screen.dart';
-import '../theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
+import '../localization/app_localizations.dart';
+import 'closet_screen.dart';
+import 'outfit_generator_screen.dart';
+import 'upload_screen.dart';
+import 'profile_screen.dart';
+import 'create_clothing_screen.dart';
+import 'history_screen.dart';
+import 'laundry_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final Function(bool) onThemeChanged;
+  final Function(String) onLanguageChanged;
+  
+  const HomeScreen({
+    super.key,
+    required this.onThemeChanged,
+    required this.onLanguageChanged,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int index = 0;
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  int _currentIndex = 0;
+  String? _profileImageUrl;
 
-  final NotchBottomBarController _controller = NotchBottomBarController(
-    index: 0,
-  );
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   final screens = const [
     ClosetScreen(),
@@ -34,118 +47,143 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return AppColors.thistle;
       case 2:
-        return AppColors.tealMist;
+        return AppColors.littleBoyBlue;
       default:
         return AppColors.platinum;
     }
   }
 
   @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    
+    _animationController.forward();
+    _loadUserProfile();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final response = await Supabase.instance.client
+            .from('profiles')
+            .select('avatar_url')
+            .eq('user_id', user.id)
+            .single();
+        
+        if (response != null && response['avatar_url'] != null) {
+          setState(() {
+            _profileImageUrl = response['avatar_url'];
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user profile: $e');
+    }
+  }
+
+  void _updateProfileImage(String? newImageUrl) {
+    setState(() {
+      _profileImageUrl = newImageUrl;
+    });
+    print('Profile image updated in HomeScreen: $newImageUrl');
+  }
+
+  @override
   Widget build(BuildContext context) {
-        return Scaffold(
-      extendBody: true,
-      backgroundColor: getBackgroundColor(index),
+    return Scaffold(
+      backgroundColor: getBackgroundColor(_currentIndex),
       endDrawer: _buildDrawer(),
-               appBar: AppBar(
-          backgroundColor: getBackgroundColor(index),
-          elevation: 0,
-          title: SizedBox(
-            height: 120, // Aumentado de 40 a 120 para mejor visibilidad
-            child: Image.asset(
-              'assets/logo_home.png',
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Text(
-                  'Closet Virtual',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.darkText,
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            Builder(
-              builder: (context) => IconButton(
-                icon: CircleAvatar(
-                  radius: 20, // Hace el CircleAvatar más grande
-                  backgroundColor: AppColors.thistle,
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 24, // Ícono más grande también
-                  ),
+      appBar: AppBar(
+        backgroundColor: getBackgroundColor(_currentIndex),
+        elevation: 0,
+        title: SizedBox(
+          height: 120,
+          child: Image.asset(
+            'assets/logo_home.png',
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Text(
+                'Closet Virtual',
+                style: GoogleFonts.montserrat(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkText,
                 ),
-                                 onPressed: () {
-                   Scaffold.of(context).openEndDrawer();
-                 },
+              );
+            },
+          ),
+        ),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              onPressed: () {
+                Scaffold.of(context).openEndDrawer();
+              },
+              icon: CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.liberty,
+                backgroundImage: _profileImageUrl != null
+                    ? NetworkImage(_profileImageUrl!)
+                    : null,
+                child: _profileImageUrl == null
+                    ? const Icon(
+                        Icons.person,
+                        size: 24,
+                        color: Colors.white,
+                      )
+                    : null,
               ),
             ),
-          ],
-        ),
-
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 80), // Aumentado de 60 a 80 para dar más espacio
-            child: screens[index],
           ),
-
-          // if (index == 1)
-          //   Positioned(
-          //     bottom: 120, // Aumentado de 76 a 120 para separarlo más de la barra
-          //     right: 16,
-          //     child: FloatingActionButton(
-          //       backgroundColor: AppColors.thistle,
-          //       onPressed: () {
-          //         // acción para subir ropa
-          //       },
-          //       child: const Icon(Icons.add),
-          //     ),
-          //   ),
         ],
       ),
-
-      bottomNavigationBar: AnimatedNotchBottomBar(
-        notchBottomBarController: _controller,
-        kIconSize: 24.0,
-        kBottomRadius: 28.0,
-        color: Colors.black,
-        notchColor: getBackgroundColor(index),
-        showLabel: false,
-        bottomBarItems: [
-          BottomBarItem(
-            inActiveItem: const Icon(
-              Icons.checkroom_outlined,
-              color: Colors.white,
-            ),
-            activeItem: const Icon(Icons.checkroom, color: Colors.pinkAccent),
-          ),
-          BottomBarItem(
-            inActiveItem: const Icon(
-              Icons.upload_file_outlined,
-              color: Colors.white,
-            ),
-            activeItem: const Icon(Icons.upload_file, color: Color(0xFF5B61B2)),
-          ),
-          BottomBarItem(
-            inActiveItem: const Icon(
-              Icons.auto_awesome_outlined,
-              color: Colors.white,
-            ),
-            activeItem: const Icon(
-              Icons.auto_awesome,
-              color: Color(0xFF2B2B2B),
-            ),
-          ),
-        ],
+      body: screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
         onTap: (selectedIndex) {
           setState(() {
-            index = selectedIndex;
+            _currentIndex = selectedIndex;
           });
         },
+        backgroundColor: Colors.black,
+        selectedItemColor: getBackgroundColor(_currentIndex),
+        unselectedItemColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.checkroom_outlined),
+            activeIcon: Icon(Icons.checkroom),
+            label: AppLocalizations.of(context).closet,
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            activeIcon: Icon(Icons.add_circle),
+            label: AppLocalizations.of(context).add,
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome_outlined),
+            activeIcon: Icon(Icons.auto_awesome),
+            label: AppLocalizations.of(context).generate,
+          ),
+        ],
       ),
     );
   }
@@ -153,32 +191,40 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildDrawer() {
     return Drawer(
       child: Container(
-        color: Colors.white,
-        child: Column(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.thistle, AppColors.platinum],
+          ),
+        ),
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            // Header del drawer con foto de perfil
+            // Header
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 50, bottom: 20),
-              decoration: const BoxDecoration(
-                color: AppColors.thistle,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundColor: Colors.white,
-                    child: const Icon(
-                      Icons.person,
-                      size: 40,
-                      color: AppColors.thistle,
-                    ),
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundImage: _profileImageUrl != null
+                        ? NetworkImage(_profileImageUrl!)
+                        : null,
+                    child: _profileImageUrl == null
+                        ? Icon(
+                            Icons.person,
+                            size: 40,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Text(
-                    'Mi Perfil',
+                    AppLocalizations.of(context).myProfile,
                     style: GoogleFonts.montserrat(
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
@@ -187,71 +233,84 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             
-            // Opciones del menú
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _buildDrawerItem(
-                    icon: Icons.person_outline,
-                    title: 'Ver Perfil',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: Navegar a la pantalla de perfil
-                    },
+            // Menu Items
+            _buildDrawerItem(
+              icon: Icons.person,
+              title: AppLocalizations.of(context).viewProfile,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      onProfileImageUpdated: _updateProfileImage,
+                    ),
                   ),
-                  _buildDrawerItem(
-                    icon: Icons.add_circle_outline,
-                    title: 'Crear',
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() {
-                        index = 1; // Ir a la pantalla de upload
-                      });
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.history,
-                    title: 'Historial',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: Navegar a la pantalla de historial
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.local_laundry_service_outlined,
-                    title: 'Lavar',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: Navegar a la pantalla de lavar
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.settings_outlined,
-                    title: 'Configuración',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: Navegar a la pantalla de configuración
-                    },
-                  ),
-                ],
-              ),
+                );
+              },
             ),
             
-            // Log Out al final
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: _buildDrawerItem(
-                icon: Icons.logout,
-                title: 'Log Out',
-                onTap: () async {
-                  Navigator.pop(context);
-                  await Supabase.instance.client.auth.signOut();
-                  if (!mounted) return;
+            _buildDrawerItem(
+              icon: Icons.add_circle,
+              title: AppLocalizations.of(context).create,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CreateClothingScreen()),
+                );
+              },
+            ),
+            
+            _buildDrawerItem(
+              icon: Icons.history,
+              title: AppLocalizations.of(context).history,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                );
+              },
+            ),
+            
+            _buildDrawerItem(
+              icon: Icons.local_laundry_service,
+              title: AppLocalizations.of(context).laundry,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LaundryScreen()),
+                );
+              },
+            ),
+            
+            _buildDrawerItem(
+              icon: Icons.settings,
+              title: AppLocalizations.of(context).settings,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      onThemeChanged: widget.onThemeChanged,
+                      onLanguageChanged: widget.onLanguageChanged,
+                    ),
+                  ),
+                );
+              },
+            ),
+            
+            const Divider(color: Colors.white54, height: 32),
+            
+            // Log Out
+            _buildDrawerItem(
+              icon: Icons.logout,
+              title: AppLocalizations.of(context).logout,
+              onTap: () async {
+                await Supabase.instance.client.auth.signOut();
+                if (mounted) {
                   Navigator.of(context).pushReplacementNamed('/login');
-                },
-                isLogout: true,
-              ),
+                }
+              },
+              isLogout: true,
             ),
           ],
         ),
@@ -268,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListTile(
       leading: Icon(
         icon,
-        color: isLogout ? Colors.red : AppColors.darkText,
+        color: isLogout ? Colors.red : Colors.white,
         size: 24,
       ),
       title: Text(
@@ -276,11 +335,11 @@ class _HomeScreenState extends State<HomeScreen> {
         style: GoogleFonts.montserrat(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: isLogout ? Colors.red : AppColors.darkText,
+          color: isLogout ? Colors.red : Colors.white,
         ),
       ),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
     );
   }
 }

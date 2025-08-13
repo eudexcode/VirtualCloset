@@ -8,4 +8,8 @@ class AppColors {
   static const Color littleBoyBlue = Color(0xFFB3C7F7);
   static const Color darkText = Color(0xFF2B2B2B);
   static const Color softPink = Color(0xFFFFECFF);
+  
+  // Colores para modo claro y oscuro
+  static const Color lightMode = Color(0xFFF5F5F5);
+  static const Color darkMode = Color(0xFF2D2D2D);
 }

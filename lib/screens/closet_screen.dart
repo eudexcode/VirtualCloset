@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 
 class ClosetScreen extends StatefulWidget {
   const ClosetScreen({super.key});
@@ -11,9 +12,11 @@ class _ClosetScreenState extends State<ClosetScreen>{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(title: const Text('Closet')),
       body: Center(
-        child: Text('Welcome to your virtual closet!'),
+        child: Text(
+          AppLocalizations.of(context).welcomeMessage,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 16),
+        ),
       ),
     );
   }

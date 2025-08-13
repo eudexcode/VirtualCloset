@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../localization/app_localizations.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -23,27 +25,136 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _isLoading = false;
   bool _isProcessing = false;
   
-  String _selectedType = 'top';
+  String _selectedType = '';
   String? _selectedSubType;
   String? _selectedColor;
   String? _selectedStyle;
 
-  final List<String> _types = ['top', 'bottom', 'onepiece', 'shoes', 'accessory'];
-  final Map<String, List<String>> _subTypes = {
-    'top': ['blusa', 'camiseta', 'chaqueta', 'suéter', 'camisa'],
-    'bottom': ['pantalón', 'falda', 'shorts', 'jeans', 'leggings'],
-    'onepiece': ['vestido', 'mono', 'jumpsuit', 'overol'],
-    'shoes': ['zapatillas', 'zapatos', 'botas', 'sandalias', 'tenis'],
-    'accessory': ['bolso', 'cinturón', 'gorra', 'bufanda', 'joyas', 'cartera'],
-  };
+  // Opciones que se cargarán desde la base de datos del usuario
+  List<String> _types = [];
+  Map<String, List<String>> _subTypes = {};
+  List<String> _colors = [];
+  List<String> _styles = [];
   
-  final List<String> _colors = ['rojo', 'negro', 'azul', 'blanco', 'verde', 'amarillo', 'rosa', 'gris', 'marrón', 'morado'];
-  final List<String> _styles = ['casual', 'formal', 'deportivo', 'elegante', 'vintage', 'moderno'];
+  // Datos de la base de datos
+  List<Map<String, dynamic>> _existingTypes = [];
+  List<Map<String, dynamic>> _existingSubtypes = [];
+  List<Map<String, dynamic>> _existingStyles = [];
+  List<Map<String, dynamic>> _existingColors = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingData();
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadExistingData() async {
+    try {
+      print('Loading existing data for upload screen...');
+      
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        print('No user logged in');
+        return;
+      }
+      
+      print('Loading data for user: ${user.id}');
+      
+      // Cargar tipos existentes del usuario actual
+      final typesResponse = await Supabase.instance.client
+          .from('Clothe_Types')
+          .select()
+          .eq('user_id', user.id)
+          .order('name');
+      
+      // Cargar subtipos existentes del usuario actual con sus tipos padre
+      final subtypesResponse = await Supabase.instance.client
+          .from('Clothe_Subtypes')
+          .select('*, Clothe_Types(name)')
+          .eq('user_id', user.id)
+          .order('name');
+      
+      // Cargar estilos existentes del usuario actual
+      final stylesResponse = await Supabase.instance.client
+          .from('Clothe_Styles')
+          .select()
+          .eq('user_id', user.id)
+          .order('name');
+      
+      // Cargar colores existentes del usuario actual
+      final colorsResponse = await Supabase.instance.client
+          .from('Clothe_Colors')
+          .select()
+          .eq('user_id', user.id)
+          .order('name');
+
+      print('Raw responses for user ${user.id}:');
+      print('Types: $typesResponse');
+      print('Subtypes: $subtypesResponse');
+      print('Styles: $stylesResponse');
+      print('Colors: $colorsResponse');
+
+      setState(() {
+        _existingTypes = List<Map<String, dynamic>>.from(typesResponse);
+        _existingSubtypes = List<Map<String, dynamic>>.from(subtypesResponse);
+        _existingStyles = List<Map<String, dynamic>>.from(stylesResponse);
+        _existingColors = List<Map<String, dynamic>>.from(colorsResponse);
+        
+        // Construir el mapa de tipos y subtipos desde la base de datos
+        _subTypes.clear();
+        for (final type in _existingTypes) {
+          final typeName = type['name'] as String;
+          final subtypesForType = _existingSubtypes
+              .where((subtype) => subtype['type_id'] == type['id'])
+              .map((subtype) => subtype['name'] as String)
+              .toList();
+          _subTypes[typeName] = subtypesForType;
+        }
+        
+        // Poblar las listas de estilos y colores desde la base de datos
+        _styles = _existingStyles.map((style) => style['name'] as String).toList();
+        _colors = _existingColors.map((color) => color['name'] as String).toList();
+        _types = _existingTypes.map((type) => type['name'] as String).toList();
+        
+        // Seleccionar el primer tipo si existe
+        if (_types.isNotEmpty) {
+          _selectedType = _types.first;
+        }
+      });
+      
+      print('Data loaded successfully for user ${user.id}:');
+      print('Types: ${_existingTypes.length}');
+      print('Subtypes: ${_existingSubtypes.length}');
+      print('Styles: ${_existingStyles.length}');
+      print('Colors: ${_existingColors.length}');
+      print('Type-Subtypes map: $_subTypes');
+      print('Styles list: $_styles');
+      print('Colors list: $_colors');
+      
+      // Mostrar mensaje si no hay datos
+      if (_existingTypes.isEmpty && _existingStyles.isEmpty && _existingColors.isEmpty) {
+        print('⚠️ No hay datos en la base de datos para este usuario. Usa "Crear" para crear tipos, estilos y colores.');
+      }
+    } catch (e) {
+      print('Error loading existing data: $e');
+      // Inicializar con listas vacías si hay error
+      setState(() {
+        _existingTypes = [];
+        _existingSubtypes = [];
+        _existingStyles = [];
+        _existingColors = [];
+        _types = [];
+        _subTypes = {};
+        _styles = [];
+        _colors = [];
+      });
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -97,18 +208,13 @@ class _UploadScreenState extends State<UploadScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(
-            'Seleccionar Imagen',
-            style: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          title: Text(AppLocalizations.of(context).camera),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt, color: AppColors.liberty),
-                title: const Text('Cámara'),
+                title: Text(AppLocalizations.of(context).camera),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickImage(ImageSource.camera);
@@ -116,7 +222,7 @@ class _UploadScreenState extends State<UploadScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library, color: AppColors.liberty),
-                title: const Text('Galería'),
+                title: Text(AppLocalizations.of(context).gallery),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickImage(ImageSource.gallery);
@@ -127,7 +233,7 @@ class _UploadScreenState extends State<UploadScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
           ],
         );
@@ -192,7 +298,7 @@ class _UploadScreenState extends State<UploadScreen> {
       _selectedImage = null;
       _processedImage = null;
       _nameController.clear();
-      _selectedType = 'top';
+      _selectedType = '';
       _selectedSubType = null;
       _selectedColor = null;
       _selectedStyle = null;
@@ -229,11 +335,11 @@ class _UploadScreenState extends State<UploadScreen> {
             children: [
               // Título
               Text(
-                'Subir Nueva Prenda',
+                AppLocalizations.of(context).addNewClothing,
                 style: GoogleFonts.montserrat(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.darkText,
+                  color: Theme.of(context).textTheme.titleLarge?.color,
                 ),
                 textAlign: TextAlign.center,
               )
@@ -283,20 +389,20 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Selecciona una imagen primero',
+                          AppLocalizations.of(context).selectImageFirst,
                           style: GoogleFonts.montserrat(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.darkText.withOpacity(0.7),
+                            color: Theme.of(context).textTheme.titleMedium?.color?.withOpacity(0.7),
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Después podrás agregar la información de la prenda',
+                          AppLocalizations.of(context).thenAddClothingInfo,
                           style: GoogleFonts.montserrat(
                             fontSize: 14,
-                            color: AppColors.darkText.withOpacity(0.5),
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -324,12 +430,21 @@ class _UploadScreenState extends State<UploadScreen> {
         child: Column(
           children: [
             Text(
-              'Seleccionar Imagen',
+              AppLocalizations.of(context).selectImage,
               style: GoogleFonts.montserrat(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.darkText,
+                color: Theme.of(context).textTheme.titleMedium?.color,
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppLocalizations.of(context).tapButtonsBelow,
+              style: GoogleFonts.montserrat(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             
@@ -380,11 +495,10 @@ class _UploadScreenState extends State<UploadScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Cambiar',
-                                style: TextStyle(
-                                  color: Colors.white,
+                                AppLocalizations.of(context).change,
+                                style: GoogleFonts.montserrat(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
                                 ),
                               ),
                             ],
@@ -395,7 +509,36 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              
+              if (_selectedImage != null && _processedImage == null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isProcessing ? null : _removeBackground,
+                    icon: _isProcessing 
+                        ? const SizedBox(
+                            width: 16, 
+                            height: 16, 
+                            child: CircularProgressIndicator(strokeWidth: 2)
+                          )
+                        : const Icon(Icons.auto_fix_high),
+                    label: Text(
+                      _isProcessing 
+                          ? AppLocalizations.of(context).processing 
+                          : AppLocalizations.of(context).removeBackground
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.liberty,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ] else ...[
               // Placeholder cuando no hay imagen
               Container(
@@ -416,10 +559,10 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Toca los botones de abajo para seleccionar una imagen',
+                      AppLocalizations.of(context).tapButtonsBelow,
                       style: GoogleFonts.montserrat(
                         fontSize: 14,
-                        color: AppColors.darkText.withOpacity(0.6),
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -435,7 +578,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : () => _pickImage(ImageSource.camera),
                     icon: const Icon(Icons.camera_alt),
-                    label: const Text('Cámara'),
+                    label: Text(AppLocalizations.of(context).camera),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.thistle,
                       foregroundColor: Colors.white,
@@ -451,7 +594,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : () => _pickImage(ImageSource.gallery),
                     icon: const Icon(Icons.photo_library),
-                    label: const Text('Galería'),
+                    label: Text(AppLocalizations.of(context).gallery),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.thistle,
                       foregroundColor: Colors.white,
@@ -464,28 +607,6 @@ class _UploadScreenState extends State<UploadScreen> {
                 ),
               ],
             ),
-
-            if (_selectedImage != null && _processedImage == null) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isProcessing ? null : _removeBackground,
-                  icon: _isProcessing 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.auto_fix_high),
-                  label: Text(_isProcessing ? 'Procesando...' : 'Remover Fondo'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.liberty,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -501,11 +622,11 @@ class _UploadScreenState extends State<UploadScreen> {
         child: Column(
           children: [
             Text(
-              'Información de la Prenda',
+              AppLocalizations.of(context).garmentInformation,
               style: GoogleFonts.montserrat(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: AppColors.darkText,
+                color: Theme.of(context).textTheme.titleLarge?.color,
               ),
             ),
             const SizedBox(height: 16),
@@ -514,14 +635,14 @@ class _UploadScreenState extends State<UploadScreen> {
             TextFormField(
               controller: _nameController,
               decoration: InputDecoration(
-                labelText: 'Nombre de la prenda',
+                labelText: AppLocalizations.of(context).garmentName,
                 hintText: 'Ej: Blusa roja Zara',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 prefixIcon: const Icon(Icons.label),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Por favor ingresa un nombre';
+                  return AppLocalizations.of(context).pleaseEnterName;
                 }
                 return null;
               },
@@ -536,85 +657,133 @@ class _UploadScreenState extends State<UploadScreen> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 prefixIcon: const Icon(Icons.category),
               ),
-              items: _types.map((type) {
-                return DropdownMenuItem(
-                  value: type,
-                  child: Text(type.toUpperCase()),
-                );
-              }).toList(),
-              onChanged: (value) {
+              items: _types.isNotEmpty 
+                  ? _types.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(type.toUpperCase()),
+                      );
+                    }).toList()
+                  : [DropdownMenuItem(value: '', child: Text('No hay tipos disponibles'))],
+              onChanged: _types.isNotEmpty ? (value) {
                 setState(() {
                   _selectedType = value!;
                   _selectedSubType = null;
                 });
-              },
+              } : null,
             ),
+            if (_types.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'No has creado ningún tipo de ropa. Ve a "Crear" para crear tu primer tipo.',
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Subtipo
             DropdownButtonFormField<String>(
               value: _selectedSubType,
               decoration: InputDecoration(
-                labelText: 'Subtipo (opcional)',
+                labelText: 'Subtipo',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 prefixIcon: const Icon(Icons.style),
               ),
-              items: _subTypes[_selectedType]?.map((subType) {
-                return DropdownMenuItem(
-                  value: subType,
-                  child: Text(subType),
-                );
-              }).toList() ?? [],
-              onChanged: (value) {
+              items: _subTypes[_selectedType]?.isNotEmpty == true
+                  ? _subTypes[_selectedType]!.map((subType) {
+                      return DropdownMenuItem(
+                        value: subType,
+                        child: Text(subType),
+                      );
+                    }).toList()
+                  : [DropdownMenuItem(value: '', child: Text('No hay subtipos disponibles'))],
+              onChanged: _subTypes[_selectedType]?.isNotEmpty == true ? (value) {
                 setState(() {
                   _selectedSubType = value;
                 });
-              },
+              } : null,
             ),
+            if (_subTypes[_selectedType]?.isEmpty ?? true) ...[
+              const SizedBox(height: 8),
+              Text(
+                'No has creado subtipos para este tipo. Ve a "Crear" para crear subtipos.',
+                style: TextStyle(
+                  color: Colors.blue[700],
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Color
             DropdownButtonFormField<String>(
               value: _selectedColor,
               decoration: InputDecoration(
-                labelText: 'Color (opcional)',
+                labelText: 'Color',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 prefixIcon: const Icon(Icons.palette),
               ),
-              items: _colors.map((color) {
-                return DropdownMenuItem(
-                  value: color,
-                  child: Text(color),
-                );
-              }).toList(),
-              onChanged: (value) {
+              items: _colors.isNotEmpty
+                  ? _colors.map((color) {
+                      return DropdownMenuItem(
+                        value: color,
+                        child: Text(color),
+                      );
+                    }).toList()
+                  : [DropdownMenuItem(value: '', child: Text('No hay colores disponibles'))],
+              onChanged: _colors.isNotEmpty ? (value) {
                 setState(() {
                   _selectedColor = value;
                 });
-              },
+              } : null,
             ),
+            if (_colors.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'No has creado ningún color. Ve a "Crear" para crear tu primer color.',
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Estilo
             DropdownButtonFormField<String>(
               value: _selectedStyle,
               decoration: InputDecoration(
-                labelText: 'Estilo (opcional)',
+                labelText: 'Estilo',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 prefixIcon: const Icon(Icons.style),
               ),
-              items: _styles.map((style) {
-                return DropdownMenuItem(
-                  value: style,
-                  child: Text(style),
-                );
-              }).toList(),
-              onChanged: (value) {
+              items: _styles.isNotEmpty
+                  ? _styles.map((style) {
+                      return DropdownMenuItem(
+                        value: style,
+                        child: Text(style),
+                      );
+                    }).toList()
+                  : [DropdownMenuItem(value: '', child: Text('No hay estilos disponibles'))],
+              onChanged: _styles.isNotEmpty ? (value) {
                 setState(() {
                   _selectedStyle = value;
                 });
-              },
+              } : null,
             ),
+            if (_styles.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'No has creado ningún estilo. Ve a "Crear" para crear tu primer estilo.',
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -649,10 +818,11 @@ class _UploadScreenState extends State<UploadScreen> {
                   const Icon(Icons.save),
                   const SizedBox(width: 8),
                   Text(
-                    'Guardar Prenda',
+                    AppLocalizations.of(context).saveGarment,
                     style: GoogleFonts.montserrat(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ],

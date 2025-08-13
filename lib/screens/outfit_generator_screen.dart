@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_colors.dart';
+import '../localization/app_localizations.dart';
 
 class OutfitGeneratorScreen extends StatefulWidget {
   const OutfitGeneratorScreen({super.key});
@@ -15,14 +16,18 @@ class _OutfitGeneratorScreenState extends State<OutfitGeneratorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(title: const Text('Generador de Atuendos')),
-      body: Center(child: Text('Aquí puedes generar atuendos con tu ropa!')),
+      body: Center(
+        child: Text(
+          AppLocalizations.of(context).generateOutfitsMessage,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 16),
+        ),
+      ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(
           bottom: 20,
         ), // Subir el botón 80px más arriba
         child: FloatingActionButton(
-          backgroundColor: AppColors.tealMist, // Usar el color correspondiente al índice 2
+          backgroundColor: AppColors.liberty,
           onPressed: () {
             // Aquí puedes implementar la lógica para generar atuendos
             ScaffoldMessenger.of(context).showSnackBar(
